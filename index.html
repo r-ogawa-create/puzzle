@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>立体三目並べ | Crystal Hyper Tic-Tac-Toe</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Helvetica Neue", "Noto Sans JP", "Hiragino Sans", sans-serif;
+    }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #070b19 0%, #03040c 55%, #020308 100%);
+      color: #f2f7ff;
+      overflow: hidden;
+    }
+    #boardCanvas {
+      position: absolute;
+      inset: 0;
+      display: block;
+      z-index: 0;
+      pointer-events: auto;
+    }
+    #uiPanel {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      padding: 18px 22px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(8, 12, 28, 0.7);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+      min-width: 220px;
+      pointer-events: auto;
+      z-index: 20;
+    }
+    #flatBoardPanel {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      width: 240px;
+      background: rgba(8, 12, 28, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 18px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+      padding: 16px 16px 12px;
+      z-index: 18;
+      pointer-events: auto;
+    }
+    #flatBoardHeader {
+      font-size: 0.95rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #b3c6ff;
+      margin-bottom: 10px;
+    }
+    #flatBoardCanvas {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      display: block;
+      cursor: pointer;
+      border-radius: 14px;
+      background: rgba(7, 10, 20, 0.85);
+      box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.6);
+      touch-action: manipulation;
+    }
+    #flatLayerTabs {
+      display: flex;
+      gap: 6px;
+      padding: 10px 2px 0;
+      flex-wrap: wrap;
+    }
+    #flatLayerTabs button {
+      flex: 1;
+      min-width: 52px;
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(39, 57, 110, 0.4);
+      color: #dbe6ff;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: background 0.2s ease, border 0.2s ease;
+    }
+    #flatLayerTabs button.active {
+      background: rgba(122, 154, 255, 0.65);
+      border-color: rgba(255, 255, 255, 0.35);
+      color: #04122b;
+      font-weight: 600;
+    }
+    #flatLayerTabs button:hover {
+      background: rgba(122, 154, 255, 0.45);
+    }
+    #uiPanel h1 {
+      margin: 0 0 8px;
+      font-size: 1.1rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #b3c6ff;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 0.95rem;
+      color: #d5e3ff;
+    }
+    .info-row span.value {
+      font-weight: 600;
+      color: #86b7ff;
+    }
+    button, select {
+      font: inherit;
+      border: none;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: rgba(47, 77, 155, 0.4);
+      color: #f3f6ff;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
+      outline: none;
+    }
+    button:hover, select:hover {
+      background: rgba(112, 148, 255, 0.55);
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    #controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    select {
+      width: 100%;
+      background: rgba(40, 59, 122, 0.5);
+      border-radius: 12px;
+      padding: 8px 10px;
+    }
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, rgba(5, 7, 15, 0.8) 0%, rgba(1, 2, 4, 0.92) 60%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+      z-index: 30;
+    }
+    #overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #overlayCard {
+      text-align: center;
+      padding: 30px 40px;
+      border-radius: 20px;
+      background: rgba(15, 20, 40, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.7);
+    }
+    #overlayMessage {
+      font-size: 1.8rem;
+      margin-bottom: 18px;
+      letter-spacing: 0.08em;
+    }
+    #overlay button {
+      padding: 10px 18px;
+      border-radius: 14px;
+    }
+    @media (max-width: 720px) {
+      #uiPanel {
+        width: calc(100% - 32px);
+        left: 16px;
+        right: 16px;
+      }
+      .info-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="flatBoardPanel">
+    <div id="flatBoardHeader">Board (Layer 1/4)</div>
+    <canvas id="flatBoardCanvas" width="240" height="240"></canvas>
+    <div id="flatLayerTabs"></div>
+  </div>
+
+  <div id="uiPanel">
+    <h1>Crystal Qubic</h1>
+    <div class="info-row">
+      <span>Current Turn</span>
+      <span id="currentTurn" class="value">Blue</span>
+    </div>
+    <div class="info-row">
+      <span>Board Size</span>
+      <select id="boardSizeSelect">
+        <option value="4" selected>4×4×4</option>
+        <option value="3">3×3×3</option>
+      </select>
+    </div>
+    <div class="info-row">
+      <span>Mode</span>
+      <button id="modeToggle">Mode: vs AI</button>
+    </div>
+    <div class="info-row">
+      <span>AI Level</span>
+      <select id="levelSelect">
+        <option value="normal">Normal</option>
+      </select>
+    </div>
+    <div id="controls">
+      <button id="newGameBtn">New Game</button>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <div id="overlayCard">
+      <div id="overlayMessage">Blue Wins!</div>
+      <button id="overlayReset">もう一度</button>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.157.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.157.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    const DEFAULT_SIZE = 4;
+    const CELL_SPACING = 1.15;
+    const PIECE_RADIUS = 0.32;
+
+    let boardSize = DEFAULT_SIZE;
+    let scene, camera, renderer, controls;
+    let raycaster, pointer;
+    let boardGroup, pieceGroup;
+    let interactiveCells = [];
+    let boardState = [];
+    let pieceRefs = [];
+    let currentPlayer = "blue";
+    let isVsAI = true;
+    let aiLevel = "normal";
+    let gameOver = false;
+    let waitingForAI = false;
+    let winningMeshes = [];
+    let winningLines = [];
+    let flatCtx;
+    let flatCurrentLayer = 0;
+    let flatHoverCell = null;
+    let flatWinningLine = null;
+    let lastPlacedCell = null;
+    let flatCanvasDisplaySize = 0;
+    let flatBoardInitialized = false;
+
+    const currentTurnEl = document.getElementById("currentTurn");
+    const boardSizeSelect = document.getElementById("boardSizeSelect");
+    const modeToggleBtn = document.getElementById("modeToggle");
+    const newGameBtn = document.getElementById("newGameBtn");
+    const levelSelect = document.getElementById("levelSelect");
+    const overlay = document.getElementById("overlay");
+    const overlayMessage = document.getElementById("overlayMessage");
+    const overlayReset = document.getElementById("overlayReset");
+    const flatBoardCanvas = document.getElementById("flatBoardCanvas");
+    const flatLayerTabs = document.getElementById("flatLayerTabs");
+    const flatBoardHeader = document.getElementById("flatBoardHeader");
+
+    initScene();
+    applyBoardSize(boardSize);
+    animate();
+
+    function initScene() {
+      scene = new THREE.Scene();
+      scene.fog = new THREE.Fog(0x02040a, 18, 32);
+
+      camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(7, 8, 11);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.shadowMap.enabled = true;
+      renderer.domElement.id = "boardCanvas";
+      document.body.appendChild(renderer.domElement);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.enablePan = false;
+      controls.minDistance = 6;
+      controls.maxDistance = 16;
+      controls.maxPolarAngle = Math.PI * 0.92;
+
+      const ambient = new THREE.AmbientLight(0x4c5ccb, 0.7);
+      scene.add(ambient);
+
+      const keyLight = new THREE.PointLight(0xffffff, 1.2, 70);
+      keyLight.position.set(6, 10, 7);
+      keyLight.castShadow = true;
+      scene.add(keyLight);
+
+      const rimLight = new THREE.PointLight(0x6699ff, 0.8, 70);
+      rimLight.position.set(-6, 5, -8);
+      scene.add(rimLight);
+
+      const baseGeo = new THREE.CylinderGeometry(5, 5.6, 0.45, 64);
+      const baseMat = new THREE.MeshPhysicalMaterial({
+        color: 0x111520,
+        roughness: 0.2,
+        metalness: 0.8,
+        clearcoat: 0.6,
+        clearcoatRoughness: 0.2,
+      });
+      const base = new THREE.Mesh(baseGeo, baseMat);
+      base.receiveShadow = true;
+      base.position.y = -2.8;
+      scene.add(base);
+
+      pieceGroup = new THREE.Group();
+      scene.add(pieceGroup);
+
+      raycaster = new THREE.Raycaster();
+      pointer = new THREE.Vector2();
+
+      window.addEventListener("resize", onWindowResize);
+      window.addEventListener("pointerdown", onPointerDown);
+
+      newGameBtn.addEventListener("click", resetGame);
+      overlayReset.addEventListener("click", resetGame);
+      modeToggleBtn.addEventListener("click", () => {
+        isVsAI = !isVsAI;
+        modeToggleBtn.textContent = isVsAI ? "Mode: vs AI" : "Mode: vs Human";
+        resetGame();
+      });
+      levelSelect.addEventListener("change", (event) => {
+        aiLevel = event.target.value;
+        if (isVsAI && currentPlayer === "red") {
+          runAI();
+        }
+      });
+      if (boardSizeSelect) {
+        boardSizeSelect.addEventListener("change", (event) => {
+          const size = parseInt(event.target.value, 10);
+          applyBoardSize(size);
+        });
+      }
+    }
+
+    function applyBoardSize(size) {
+      const nextSize = Math.max(3, Math.min(4, size));
+      const needsRebuild = nextSize !== boardSize || !boardGroup;
+      boardSize = nextSize;
+      if (boardSizeSelect) {
+        boardSizeSelect.value = String(boardSize);
+      }
+      winningLines = generateWinningLines(boardSize); // ここで勝ちパターンを追加できます
+      if (needsRebuild) {
+        createBoard();
+      }
+      initFlatBoard();
+      resetGame();
+    }
+
+    function createBoard() {
+      if (boardGroup) {
+        scene.remove(boardGroup);
+      }
+      boardGroup = new THREE.Group();
+      interactiveCells = [];
+
+      const cellGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+      const cellMat = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.06,
+        metalness: 0.5,
+        roughness: 0.2,
+      });
+
+      for (let z = 0; z < boardSize; z++) {
+        for (let y = 0; y < boardSize; y++) {
+          for (let x = 0; x < boardSize; x++) {
+            const cellMesh = new THREE.Mesh(cellGeo, cellMat.clone());
+            const pos = cellToWorld(x, y, z);
+            cellMesh.position.copy(pos);
+            cellMesh.userData = { x, y, z };
+            cellMesh.material.opacity = 0.055;
+
+            const edges = new THREE.LineSegments(
+              new THREE.EdgesGeometry(cellGeo),
+              new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 })
+            );
+            edges.position.copy(pos);
+
+            boardGroup.add(cellMesh);
+            boardGroup.add(edges);
+            interactiveCells.push(cellMesh);
+          }
+        }
+      }
+
+      const gridSize = boardSize * CELL_SPACING + 0.2;
+      const gridGeo = new THREE.BoxGeometry(gridSize, gridSize, gridSize);
+      const gridOutline = new THREE.LineSegments(
+        new THREE.EdgesGeometry(gridGeo),
+        new THREE.LineBasicMaterial({ color: 0x99aaff, transparent: true, opacity: 0.2 })
+      );
+      gridOutline.position.y = 0;
+      boardGroup.add(gridOutline);
+
+      scene.add(boardGroup);
+    }
+
+    function createPiece(player) {
+      const color = player === "blue" ? 0x2f7fff : 0xff2f5b;
+      const material = new THREE.MeshPhysicalMaterial({
+        color,
+        metalness: 0.35,
+        roughness: 0.08,
+        transmission: 0.92,
+        thickness: 1.5,
+        envMapIntensity: 1.2,
+        transparent: true,
+        opacity: 0.9,
+        emissive: new THREE.Color(color),
+        emissiveIntensity: 0.12,
+      });
+      const sphere = new THREE.Mesh(new THREE.SphereGeometry(PIECE_RADIUS, 48, 48), material);
+      sphere.castShadow = true;
+      sphere.receiveShadow = false;
+      sphere.userData.baseScale = 1;
+      return sphere;
+    }
+
+    function onPointerDown(event) {
+      if (gameOver || waitingForAI) return;
+      pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const intersects = raycaster.intersectObjects(interactiveCells, false);
+      if (intersects.length === 0) return;
+      const { x, y, z } = intersects[0].object.userData;
+      selectCell(x, y, z);
+    }
+
+    function onCellSelected(x, y, z) {
+      selectCell(x, y, z);
+    }
+
+    function selectCell(x, y, z) {
+      if (gameOver || waitingForAI) return;
+      if (!isWithinBounds(x, y, z)) return;
+      if (boardState[z][y][x]) return;
+      placePiece(x, y, z, currentPlayer);
+    }
+
+    function placePiece(x, y, z, player) {
+      const piece = createPiece(player);
+      piece.position.copy(cellToWorld(x, y, z));
+      pieceGroup.add(piece);
+      boardState[z][y][x] = player;
+      pieceRefs[z][y][x] = piece;
+      lastPlacedCell = { x, y, z };
+      setCurrentLayer(z);
+
+      const winningLine = checkWin(boardState, player);
+      if (winningLine) {
+        highlightWinningLine(winningLine);
+        highlightFlatWin(winningLine);
+        finishGame(player === "blue" ? "Blue Wins!" : "Red Wins!");
+        return;
+      }
+
+      if (isBoardFull()) {
+        finishGame("Draw");
+        return;
+      }
+
+      currentPlayer = player === "blue" ? "red" : "blue";
+      updateTurnDisplay();
+
+      if (isVsAI && currentPlayer === "red") {
+        runAI();
+      }
+    }
+
+    function runAI() {
+      if (gameOver || waitingForAI || !isVsAI || currentPlayer !== "red") return;
+      waitingForAI = true;
+      setTimeout(() => {
+        const move = getBestMove(boardState, "red");
+        waitingForAI = false;
+        if (move) {
+          selectCell(move.x, move.y, move.z);
+        }
+      }, 550);
+    }
+
+    function getBestMove(board, player) {
+      let move = findWinningMove(board, player);
+      if (move) return move;
+
+      const opponent = player === "blue" ? "red" : "blue";
+      move = findBlockingMove(board, opponent);
+      if (move) return move;
+
+      const candidates = [];
+      const center = (boardSize - 1) / 2;
+      for (let z = 0; z < boardSize; z++) {
+        for (let y = 0; y < boardSize; y++) {
+          for (let x = 0; x < boardSize; x++) {
+            if (!board[z][y][x]) {
+              const dx = Math.abs(x - center);
+              const dy = Math.abs(y - center);
+              const dz = Math.abs(z - center);
+              const score = 10 - (dx * 1.4 + dy * 1.1 + dz * 1.6);
+              candidates.push({ x, y, z, score });
+            }
+          }
+        }
+      }
+      candidates.sort((a, b) => b.score - a.score);
+      if (aiLevel !== "normal") {
+        // ここでAIの賢さを調整できます（候補リストを加工するなど）
+      }
+      return candidates[0] || null;
+    }
+
+    function findWinningMove(board, player) {
+      for (const line of winningLines) {
+        let match = 0;
+        let emptyCell = null;
+        for (const { x, y, z } of line) {
+          const cell = board[z][y][x];
+          if (cell === player) {
+            match++;
+          } else if (!cell) {
+            if (!emptyCell) emptyCell = { x, y, z };
+          } else {
+            match = -99;
+            break;
+          }
+        }
+        if (match === boardSize - 1 && emptyCell) {
+          return emptyCell;
+        }
+      }
+      return null;
+    }
+
+    function findBlockingMove(board, opponent) {
+      return findWinningMove(board, opponent);
+    }
+
+    function checkWin(board, player) {
+      for (const line of winningLines) {
+        let count = 0;
+        for (const { x, y, z } of line) {
+          if (board[z][y][x] === player) {
+            count++;
+          } else {
+            break;
+          }
+        }
+        if (count === boardSize) {
+          return line;
+        }
+      }
+      return null;
+    }
+
+    function isBoardFull() {
+      for (let z = 0; z < boardSize; z++) {
+        for (let y = 0; y < boardSize; y++) {
+          for (let x = 0; x < boardSize; x++) {
+            if (!boardState[z][y][x]) return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function highlightWinningLine(line) {
+      winningMeshes = [];
+      line.forEach(({ x, y, z }) => {
+        const mesh = pieceRefs[z][y][x];
+        if (mesh) {
+          mesh.userData.isWinning = true;
+          mesh.material.emissive = new THREE.Color(0xfff3c2);
+          mesh.material.emissiveIntensity = 0.6;
+          winningMeshes.push(mesh);
+        }
+      });
+    }
+
+    function highlightFlatWin(line) {
+      flatWinningLine = line;
+      drawFlatBoard();
+    }
+
+    function finishGame(message) {
+      gameOver = true;
+      waitingForAI = false;
+      showOverlay(message);
+    }
+
+    function resetGame() {
+      gameOver = false;
+      waitingForAI = false;
+      hideOverlay();
+      currentPlayer = "blue";
+      updateTurnDisplay();
+
+      boardState = createEmptyVolume();
+      pieceRefs = createEmptyVolume();
+      winningMeshes = [];
+      flatWinningLine = null;
+      lastPlacedCell = null;
+      flatHoverCell = null;
+      setCurrentLayer(0, { silent: true });
+      drawFlatBoard();
+
+      for (const child of [...pieceGroup.children]) {
+        pieceGroup.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach((mat) => mat.dispose());
+          } else {
+            child.material.dispose();
+          }
+        }
+      }
+
+      if (isVsAI) {
+        modeToggleBtn.textContent = "Mode: vs AI";
+      } else {
+        modeToggleBtn.textContent = "Mode: vs Human";
+      }
+
+      if (isVsAI && currentPlayer === "red") {
+        runAI();
+      }
+    }
+
+    function createEmptyVolume(size = boardSize) {
+      return Array.from({ length: size }, () =>
+        Array.from({ length: size }, () => Array(size).fill(null))
+      );
+    }
+
+    function cellToWorld(x, y, z) {
+      const offset = (boardSize - 1) / 2;
+      return new THREE.Vector3(
+        (x - offset) * CELL_SPACING,
+        (z - offset) * CELL_SPACING,
+        (y - offset) * CELL_SPACING
+      );
+    }
+
+    function updateTurnDisplay() {
+      currentTurnEl.textContent = currentPlayer === "blue" ? "Blue" : "Red";
+    }
+
+    function showOverlay(message) {
+      overlayMessage.textContent = message;
+      overlay.classList.add("active");
+    }
+
+    function hideOverlay() {
+      overlay.classList.remove("active");
+    }
+
+    // ----- Flat board (2D panel) helpers -----
+    function initFlatBoard() {
+      if (!flatBoardCanvas) return;
+      if (!flatBoardInitialized) {
+        flatCtx = flatBoardCanvas.getContext("2d");
+        flatBoardCanvas.addEventListener("pointermove", handleFlatBoardHover);
+        flatBoardCanvas.addEventListener("pointerleave", handleFlatBoardLeave);
+        flatBoardCanvas.addEventListener("pointerdown", handleFlatBoardClick);
+        flatBoardInitialized = true;
+      }
+      updateFlatCanvasSize();
+      buildFlatLayerTabs();
+      setCurrentLayer(0, { silent: true });
+      drawFlatBoard();
+    }
+
+    function buildFlatLayerTabs() {
+      if (!flatLayerTabs) return;
+      flatLayerTabs.innerHTML = "";
+      for (let z = 0; z < boardSize; z++) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = `Layer ${z + 1}`;
+        btn.addEventListener("click", () => {
+          setCurrentLayer(z);
+        });
+        flatLayerTabs.appendChild(btn);
+      }
+    }
+
+    function setCurrentLayer(layerIndex, options = {}) {
+      const { silent = false } = options;
+      const clamped = Math.min(Math.max(layerIndex, 0), Math.max(boardSize - 1, 0));
+      flatCurrentLayer = clamped;
+      if (flatLayerTabs) {
+        Array.from(flatLayerTabs.children).forEach((btn, idx) => {
+          btn.classList.toggle("active", idx === flatCurrentLayer);
+        });
+      }
+      if (flatBoardHeader) {
+        flatBoardHeader.textContent = `Board (Layer ${flatCurrentLayer + 1}/${boardSize})`;
+      }
+      if (!silent) {
+        drawFlatBoard();
+      }
+    }
+
+    function updateFlatCanvasSize() {
+      if (!flatBoardCanvas) return;
+      const rect = flatBoardCanvas.getBoundingClientRect();
+      const size = rect.width || flatBoardCanvas.clientWidth || 220;
+      const dpr = window.devicePixelRatio || 1;
+      flatBoardCanvas.width = size * dpr;
+      flatBoardCanvas.height = size * dpr;
+      flatCanvasDisplaySize = size;
+      if (flatCtx) {
+        flatCtx.setTransform(1, 0, 0, 1, 0, 0);
+        flatCtx.scale(dpr, dpr);
+      }
+    }
+
+    function drawFlatBoard() {
+      if (!flatCtx || !flatBoardCanvas || !boardState.length) return;
+      updateFlatCanvasSize();
+      const canvasSize = flatCanvasDisplaySize || 220;
+      const layer = Math.min(flatCurrentLayer, boardSize - 1);
+      if (layer < 0) return;
+      const cellSize = canvasSize / boardSize;
+
+      flatCtx.clearRect(0, 0, canvasSize, canvasSize);
+      const bgGradient = flatCtx.createLinearGradient(0, 0, canvasSize, canvasSize);
+      bgGradient.addColorStop(0, "rgba(9, 13, 26, 0.95)");
+      bgGradient.addColorStop(1, "rgba(2, 4, 12, 0.95)");
+      flatCtx.fillStyle = bgGradient;
+      flatCtx.fillRect(0, 0, canvasSize, canvasSize);
+
+      flatCtx.fillStyle = "rgba(255, 255, 255, 0.025)";
+      for (let y = 0; y < boardSize; y++) {
+        for (let x = 0; x < boardSize; x++) {
+          flatCtx.fillRect(x * cellSize + 1, y * cellSize + 1, cellSize - 2, cellSize - 2);
+        }
+      }
+
+      if (flatWinningLine) {
+        flatCtx.fillStyle = "rgba(255, 243, 194, 0.2)";
+        flatWinningLine.forEach(({ x, y, z }) => {
+          if (z !== layer) return;
+          flatCtx.fillRect(x * cellSize + 2, y * cellSize + 2, cellSize - 4, cellSize - 4);
+        });
+      }
+
+      if (lastPlacedCell && lastPlacedCell.z === layer) {
+        flatCtx.fillStyle = "rgba(255, 255, 255, 0.08)";
+        flatCtx.fillRect(
+          lastPlacedCell.x * cellSize + 2,
+          lastPlacedCell.y * cellSize + 2,
+          cellSize - 4,
+          cellSize - 4
+        );
+      }
+
+      const boardLayer = boardState[layer] || [];
+      for (let y = 0; y < boardSize; y++) {
+        for (let x = 0; x < boardSize; x++) {
+          const cell = boardLayer[y]?.[x];
+          if (!cell) continue;
+          const color = cell === "blue" ? "#2f7fff" : "#ff2f5b";
+          const cx = x * cellSize + cellSize / 2;
+          const cy = y * cellSize + cellSize / 2;
+          const radius = cellSize * 0.32;
+          flatCtx.beginPath();
+          flatCtx.fillStyle = color;
+          flatCtx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+          flatCtx.lineWidth = 1.6;
+          flatCtx.shadowColor = color;
+          flatCtx.shadowBlur = 12;
+          flatCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+          flatCtx.fill();
+          flatCtx.shadowBlur = 0;
+          flatCtx.shadowColor = "transparent";
+          flatCtx.stroke();
+        }
+      }
+
+      flatCtx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+      flatCtx.lineWidth = 1;
+      for (let i = 0; i <= boardSize; i++) {
+        const pos = i * cellSize;
+        flatCtx.beginPath();
+        flatCtx.moveTo(pos, 0);
+        flatCtx.lineTo(pos, canvasSize);
+        flatCtx.stroke();
+        flatCtx.beginPath();
+        flatCtx.moveTo(0, pos);
+        flatCtx.lineTo(canvasSize, pos);
+        flatCtx.stroke();
+      }
+
+      if (flatHoverCell && flatHoverCell.layer === layer) {
+        flatCtx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+        flatCtx.lineWidth = 2;
+        flatCtx.strokeRect(
+          flatHoverCell.x * cellSize + 2,
+          flatHoverCell.y * cellSize + 2,
+          cellSize - 4,
+          cellSize - 4
+        );
+      }
+    }
+
+    function handleFlatBoardClick(event) {
+      event.preventDefault();
+      if (gameOver || waitingForAI) return;
+      const cell = getFlatCellFromPointer(event);
+      if (!cell) return;
+      selectCell(cell.x, cell.y, flatCurrentLayer);
+    }
+
+    function handleFlatBoardHover(event) {
+      const cell = getFlatCellFromPointer(event);
+      if (!cell) {
+        if (flatHoverCell) {
+          flatHoverCell = null;
+          drawFlatBoard();
+        }
+        return;
+      }
+      const nextHover = { x: cell.x, y: cell.y, layer: flatCurrentLayer };
+      if (
+        !flatHoverCell ||
+        flatHoverCell.x !== nextHover.x ||
+        flatHoverCell.y !== nextHover.y ||
+        flatHoverCell.layer !== nextHover.layer
+      ) {
+        flatHoverCell = nextHover;
+        drawFlatBoard();
+      }
+    }
+
+    function handleFlatBoardLeave() {
+      if (flatHoverCell) {
+        flatHoverCell = null;
+        drawFlatBoard();
+      }
+    }
+
+    function getFlatCellFromPointer(event) {
+      if (!flatBoardCanvas || boardSize <= 0) return null;
+      const rect = flatBoardCanvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return null;
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+      if (localX < 0 || localY < 0 || localX > rect.width || localY > rect.height) return null;
+      const step = rect.width / boardSize;
+      const x = Math.floor(localX / step);
+      const y = Math.floor(localY / step);
+      if (!isWithinBounds(x, y, flatCurrentLayer)) return null;
+      return { x, y };
+    }
+
+    function isWithinBounds(x, y, z) {
+      return (
+        x >= 0 &&
+        x < boardSize &&
+        y >= 0 &&
+        y < boardSize &&
+        z >= 0 &&
+        z < boardSize
+      );
+    }
+
+    function generateWinningLines(size = boardSize) {
+      const lines = [];
+      const directions = [];
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dz = -1; dz <= 1; dz++) {
+            if (dx === 0 && dy === 0 && dz === 0) continue;
+            if (!isForwardDirection(dx, dy, dz)) continue;
+            directions.push({ dx, dy, dz });
+          }
+        }
+      }
+      for (let x = 0; x < size; x++) {
+        for (let y = 0; y < size; y++) {
+          for (let z = 0; z < size; z++) {
+            for (const { dx, dy, dz } of directions) {
+              const line = [];
+              for (let i = 0; i < size; i++) {
+                const nx = x + dx * i;
+                const ny = y + dy * i;
+                const nz = z + dz * i;
+                if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) {
+                  break;
+                }
+                line.push({ x: nx, y: ny, z: nz });
+              }
+              if (line.length === size) {
+                lines.push(line);
+              }
+            }
+          }
+        }
+      }
+      return dedupeLines(lines);
+    }
+
+    function dedupeLines(lines) {
+      const unique = [];
+      const seen = new Set();
+      for (const line of lines) {
+        const key = line
+          .map(({ x, y, z }) => `${x}${y}${z}`)
+          .sort()
+          .join("");
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push(line);
+        }
+      }
+      return unique;
+    }
+
+    function isForwardDirection(dx, dy, dz) {
+      if (dx !== 0) return dx > 0;
+      if (dy !== 0) return dy > 0;
+      return dz > 0;
+    }
+
+    function animate(time) {
+      requestAnimationFrame(animate);
+      controls.update();
+      if (winningMeshes.length) {
+        const pulse = 0.6 + Math.sin(time * 0.003) * 0.35;
+        for (const mesh of winningMeshes) {
+          mesh.material.emissiveIntensity = pulse;
+          const scale = mesh.userData.baseScale + Math.sin(time * 0.002) * 0.03;
+          mesh.scale.setScalar(scale);
+        }
+      }
+      renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      if (flatCtx) {
+        updateFlatCanvasSize();
+        drawFlatBoard();
+      }
+    }
+  </script>
+</body>
+</html>
