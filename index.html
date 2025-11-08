@@ -11,7 +11,7 @@
     }
     body {
       margin: 0;
-      background: radial-gradient(circle at top, #070b19 0%, #03040c 55%, #020308 100%);
+      background: radial-gradient(circle at top, #0c1542 0%, #050a1c 55%, #03040f 100%);
       color: #f2f7ff;
       overflow: hidden;
     }
@@ -168,6 +168,24 @@
       background: rgba(15, 20, 40, 0.85);
       border: 1px solid rgba(255, 255, 255, 0.08);
       box-shadow: 0 18px 50px rgba(0, 0, 0, 0.7);
+      position: relative;
+    }
+    #overlayClose {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(20, 28, 54, 0.6);
+      color: #f5f7ff;
+      font-size: 1.2rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    #overlayClose:hover {
+      background: rgba(255, 255, 255, 0.15);
     }
     #overlayMessage {
       font-size: 1.8rem;
@@ -219,7 +237,9 @@
     <div class="info-row">
       <span>AI Level</span>
       <select id="levelSelect">
-        <option value="normal">Normal</option>
+        <option value="easy">Easy</option>
+        <option value="normal" selected>Normal</option>
+        <option value="hard">Hard</option>
       </select>
     </div>
     <div id="controls">
@@ -229,8 +249,8 @@
 
   <div id="overlay">
     <div id="overlayCard">
+      <button id="overlayClose" aria-label="close result">×</button>
       <div id="overlayMessage">Blue Wins!</div>
-      <button id="overlayReset">もう一度</button>
     </div>
   </div>
 
@@ -280,7 +300,7 @@
     const levelSelect = document.getElementById("levelSelect");
     const overlay = document.getElementById("overlay");
     const overlayMessage = document.getElementById("overlayMessage");
-    const overlayReset = document.getElementById("overlayReset");
+    const overlayClose = document.getElementById("overlayClose");
     const flatBoardCanvas = document.getElementById("flatBoardCanvas");
     const flatLayerTabs = document.getElementById("flatLayerTabs");
     const flatBoardHeader = document.getElementById("flatBoardHeader");
@@ -301,6 +321,7 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
       renderer.shadowMap.enabled = true;
       renderer.domElement.id = "boardCanvas";
       document.body.appendChild(renderer.domElement);
@@ -313,16 +334,18 @@
       controls.maxDistance = 16;
       controls.maxPolarAngle = Math.PI * 0.92;
 
-      const ambient = new THREE.AmbientLight(0x4c5ccb, 0.7);
+      const ambient = new THREE.AmbientLight(0x86a8ff, 1.05);
       scene.add(ambient);
+      const hemi = new THREE.HemisphereLight(0xbfd6ff, 0x081229, 0.6);
+      scene.add(hemi);
 
-      const keyLight = new THREE.PointLight(0xffffff, 1.2, 70);
+      const keyLight = new THREE.PointLight(0xffffff, 1.55, 80);
       keyLight.position.set(6, 10, 7);
       keyLight.castShadow = true;
       scene.add(keyLight);
 
-      const rimLight = new THREE.PointLight(0x6699ff, 0.8, 70);
-      rimLight.position.set(-6, 5, -8);
+      const rimLight = new THREE.PointLight(0xa4c4ff, 1.0, 80);
+      rimLight.position.set(-7, 6, -9);
       scene.add(rimLight);
 
       const baseGeo = new THREE.CylinderGeometry(5, 5.6, 0.45, 64);
@@ -348,7 +371,7 @@
       window.addEventListener("pointerdown", onPointerDown);
 
       newGameBtn.addEventListener("click", resetGame);
-      overlayReset.addEventListener("click", resetGame);
+      overlayClose?.addEventListener("click", hideOverlay);
       modeToggleBtn.addEventListener("click", () => {
         isVsAI = !isVsAI;
         modeToggleBtn.textContent = isVsAI ? "Mode: vs AI" : "Mode: vs Human";
@@ -392,10 +415,10 @@
 
       const cellGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
       const cellMat = new THREE.MeshPhysicalMaterial({
-        color: 0xffffff,
+        color: 0xe5ecff,
         transparent: true,
-        opacity: 0.06,
-        metalness: 0.5,
+        opacity: 0.09,
+        metalness: 0.55,
         roughness: 0.2,
       });
 
@@ -410,7 +433,7 @@
 
             const edges = new THREE.LineSegments(
               new THREE.EdgesGeometry(cellGeo),
-              new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 })
+              new THREE.LineBasicMaterial({ color: 0xbfd2ff, transparent: true, opacity: 0.25 })
             );
             edges.position.copy(pos);
 
@@ -425,7 +448,7 @@
       const gridGeo = new THREE.BoxGeometry(gridSize, gridSize, gridSize);
       const gridOutline = new THREE.LineSegments(
         new THREE.EdgesGeometry(gridGeo),
-        new THREE.LineBasicMaterial({ color: 0x99aaff, transparent: true, opacity: 0.2 })
+        new THREE.LineBasicMaterial({ color: 0xbad2ff, transparent: true, opacity: 0.35 })
       );
       gridOutline.position.y = 0;
       boardGroup.add(gridOutline);
@@ -445,7 +468,7 @@
         transparent: true,
         opacity: 0.9,
         emissive: new THREE.Color(color),
-        emissiveIntensity: 0.12,
+        emissiveIntensity: 0.18,
       });
       const sphere = new THREE.Mesh(new THREE.SphereGeometry(PIECE_RADIUS, 48, 48), material);
       sphere.castShadow = true;
@@ -471,9 +494,28 @@
 
     function selectCell(x, y, z) {
       if (gameOver || waitingForAI) return;
-      if (!isWithinBounds(x, y, z)) return;
-      if (boardState[z][y][x]) return;
-      placePiece(x, y, z, currentPlayer);
+      if (!isWithinBounds(x, y, Math.min(z ?? 0, boardSize - 1))) return;
+      const dropTarget = getDropTarget(x, y);
+      if (!dropTarget) return;
+      placePiece(dropTarget.x, dropTarget.y, dropTarget.z, currentPlayer);
+    }
+
+    function getDropTarget(x, y) {
+      return getDropTargetForBoard(boardState, x, y);
+    }
+
+    function getDropTargetForBoard(board, x, y) {
+      if (!isWithinBounds(x, y, 0)) return null;
+      for (let level = 0; level < boardSize; level++) {
+        const layer = board[level];
+        if (!layer) return null;
+        const row = layer[y];
+        if (!row) return null;
+        if (!row[x]) {
+          return { x, y, z: level };
+        }
+      }
+      return null;
     }
 
     function placePiece(x, y, z, player) {
@@ -519,6 +561,9 @@
     }
 
     function getBestMove(board, player) {
+      const availableMoves = getAvailableMoves(board);
+      if (!availableMoves.length) return null;
+
       let move = findWinningMove(board, player);
       if (move) return move;
 
@@ -526,26 +571,116 @@
       move = findBlockingMove(board, opponent);
       if (move) return move;
 
-      const candidates = [];
+      if (aiLevel === "easy") {
+        return getEasyMove(availableMoves);
+      }
+
+      if (aiLevel === "hard") {
+        return getHardMove(board, player, availableMoves);
+      }
+
+      return getNormalMove(availableMoves);
+    }
+
+    function getAvailableMoves(board) {
+      const moves = [];
+      for (let y = 0; y < boardSize; y++) {
+        for (let x = 0; x < boardSize; x++) {
+          const drop = getDropTargetForBoard(board, x, y);
+          if (drop) moves.push(drop);
+        }
+      }
+      return moves;
+    }
+
+    function getEasyMove(moves) {
+      if (!moves.length) return null;
+      const pick = Math.floor(Math.random() * moves.length);
+      return moves[pick];
+    }
+
+    function getNormalMove(moves) {
+      if (!moves.length) return null;
       const center = (boardSize - 1) / 2;
-      for (let z = 0; z < boardSize; z++) {
-        for (let y = 0; y < boardSize; y++) {
-          for (let x = 0; x < boardSize; x++) {
-            if (!board[z][y][x]) {
-              const dx = Math.abs(x - center);
-              const dy = Math.abs(y - center);
-              const dz = Math.abs(z - center);
-              const score = 10 - (dx * 1.4 + dy * 1.1 + dz * 1.6);
-              candidates.push({ x, y, z, score });
+      return (
+        moves
+          .map((move) => {
+            const dx = Math.abs(move.x - center);
+            const dy = Math.abs(move.y - center);
+            const dz = Math.abs(move.z - center);
+            const score = 10 - (dx * 1.4 + dy * 1.1 + dz * 1.6);
+            return { move, score };
+          })
+          .sort((a, b) => b.score - a.score)[0]?.move || moves[0]
+      );
+    }
+
+    function getHardMove(board, player, moves) {
+      if (!moves.length) return null;
+      const center = (boardSize - 1) / 2;
+      const opponent = player === "blue" ? "red" : "blue";
+      let best = moves[0];
+      let bestScore = -Infinity;
+
+      for (const move of moves) {
+        const simulated = cloneBoard(board);
+        simulated[move.z][move.y][move.x] = player;
+        const selfScore = evaluateBoardForPlayer(simulated, player);
+
+        let opponentBest = 0;
+        const oppMoves = getAvailableMoves(simulated);
+        for (const oppMove of oppMoves) {
+          const oppBoard = cloneBoard(simulated);
+          oppBoard[oppMove.z][oppMove.y][oppMove.x] = opponent;
+          opponentBest = Math.max(opponentBest, evaluateBoardForPlayer(oppBoard, opponent));
+        }
+
+        const dx = Math.abs(move.x - center);
+        const dy = Math.abs(move.y - center);
+        const dz = Math.abs(move.z - center);
+        const centrality = 8 - (dx * 1.2 + dy * 1.0 + dz * 1.4);
+        const totalScore = selfScore - opponentBest * 0.85 + centrality;
+
+        if (totalScore > bestScore) {
+          bestScore = totalScore;
+          best = move;
+        }
+      }
+
+      return best;
+    }
+
+    function cloneBoard(board) {
+      return board.map((layer) => layer.map((row) => row.slice()));
+    }
+
+    function evaluateBoardForPlayer(board, player) {
+      const opponent = player === "blue" ? "red" : "blue";
+      let score = 0;
+      for (const line of winningLines) {
+        let playerCount = 0;
+        let blocked = false;
+        for (const { x, y, z } of line) {
+          const cell = board[z][y][x];
+          if (cell === player) {
+            playerCount++;
+          } else if (cell === opponent) {
+            blocked = true;
+            break;
+          } else {
+            const drop = getDropTargetForBoard(board, x, y);
+            if (!drop || drop.z !== z) {
+              blocked = true;
+              break;
             }
           }
         }
+        if (!blocked) {
+          const weights = [0, 1, 3, 7, 20];
+          score += weights[playerCount] ?? Math.pow(2, playerCount);
+        }
       }
-      candidates.sort((a, b) => b.score - a.score);
-      if (aiLevel !== "normal") {
-        // ここでAIの賢さを調整できます（候補リストを加工するなど）
-      }
-      return candidates[0] || null;
+      return score;
     }
 
     function findWinningMove(board, player) {
@@ -557,7 +692,17 @@
           if (cell === player) {
             match++;
           } else if (!cell) {
-            if (!emptyCell) emptyCell = { x, y, z };
+            const drop = getDropTargetForBoard(board, x, y);
+            if (!drop || drop.z !== z) {
+              match = -99;
+              break;
+            }
+            if (!emptyCell) {
+              emptyCell = drop;
+            } else {
+              match = -99;
+              break;
+            }
           } else {
             match = -99;
             break;
@@ -608,8 +753,8 @@
         const mesh = pieceRefs[z][y][x];
         if (mesh) {
           mesh.userData.isWinning = true;
-          mesh.material.emissive = new THREE.Color(0xfff3c2);
-          mesh.material.emissiveIntensity = 0.6;
+          mesh.material.emissive = new THREE.Color(0x7cffb2);
+          mesh.material.emissiveIntensity = 0.8;
           winningMeshes.push(mesh);
         }
       });
@@ -777,7 +922,7 @@
       }
 
       if (flatWinningLine) {
-        flatCtx.fillStyle = "rgba(255, 243, 194, 0.2)";
+        flatCtx.fillStyle = "rgba(124, 255, 178, 0.25)";
         flatWinningLine.forEach(({ x, y, z }) => {
           if (z !== layer) return;
           flatCtx.fillRect(x * cellSize + 2, y * cellSize + 2, cellSize - 4, cellSize - 4);
